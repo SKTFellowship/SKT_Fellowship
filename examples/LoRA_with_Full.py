@@ -5,6 +5,7 @@ import os
 import random
 import shutil
 from pathlib import Path
+from PIL import Image
 
 import numpy as np
 import torch
@@ -35,6 +36,36 @@ check_min_version("0.18.0.dev0")
 
 logger = get_logger(__name__, log_level="INFO")
 
+imagenet_templates_small = [
+    "a photo of a {}",
+    "a rendering of a {}",
+    "a cropped photo of the {}",
+    "the photo of a {}",
+    "a photo of a clean {}",
+    "a photo of a dirty {}",
+    "a dark photo of the {}",
+    "a photo of my {}",
+    "a photo of the cool {}",
+    "a close-up photo of a {}",
+    "a bright photo of the {}",
+    "a cropped photo of a {}",
+    "a photo of the {}",
+    "a good photo of the {}",
+    "a photo of one {}",
+    "a close-up photo of the {}",
+    "a rendition of the {}",
+    "a photo of the clean {}",
+    "a rendition of a {}",
+    "a photo of a nice {}",
+    "a good photo of a {}",
+    "a photo of the nice {}",
+    "a photo of the small {}",
+    "a photo of the weird {}",
+    "a photo of the large {}",
+    "a photo of a cool {}",
+    "a photo of a small {}",
+]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="LoRA training script.")
@@ -56,6 +87,16 @@ def parse_args():
         "--train_data_dir",
         type=str,
         default=None,
+    )
+    parser.add_argument(
+        "--modifier_token",
+        type=str,
+        required=True
+    )
+    parser.add_argument(
+        "--initial_token",
+        type=str,
+        required=True
     )
     parser.add_argument(
         "--max_train_samples",
@@ -248,4 +289,50 @@ def parse_args():
     return args
 
 
-# class LoRADatasets(Dataset):
+class LoRADatasets(Dataset):
+    def __init__(self, data_root, tokenizer, size, modifier_token, initial_token):
+        self.data_root = data_root
+        self.tokenizer = tokenizer
+        self.size = size
+        self.modifier_token = modifier_token
+        self.initial_token = initial_token
+
+        self.image_paths = [os.path.join(self.data_root, file_path) for file_path in os.listdir(self.data_root)]
+        self.num_images = len(self.image_paths)
+        self.templates = imagenet_templates_small
+
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+
+    def __len__(self):
+        return self.num_images
+
+    def __getitem__(self, idx):
+        example = {}
+        image = Image.open(self.image_paths[idx % self.num_images])
+
+        if not image.mode == "RGB":
+            image = image.convert("RGB")
+
+        concept_string = self.modifier_token + " " + self.initial_token
+        text = random.choice(self.templates).format(concept_string)
+
+        example["input_ids"] = self.tokenizer(
+            text,
+            padding="max_length",
+            truncation=True,
+            max_length=self.tokenizer.model_max_length,
+            return_tensors="pt",
+        ).input_ids[0]
+
+        image = image.resize((self.size, self.size), resample=Image.BILINEAR)
+        image = np.array(image).astype(np.uint8)
+        image = (image / 127.5 - 1.0).astype(np.float32)
+
+        example["pixel_values"] = torch.from_numpy(image).permute(2, 0, 1)
+        return example
