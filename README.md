@@ -48,3 +48,9 @@ Refactor : 코드의 리펙토링
 Test : test 코드 삽입 및 수정
 HotFix : 치명적인 결함이 있을 때 빠른 Commit을 통한 문제해결
 ```
+
+</br>
+
+## Site for crop custom Dataset
+we crop to custom image for 512 x 512 via [LINK](https://www.birme.net)
+
