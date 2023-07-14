@@ -338,6 +338,17 @@ class LoRADatasets(Dataset):
         return example
 
 
+def save_progress(text_encoder, placeholder_token_ids, accelerator, args, save_path):
+    logger.info("Saving embeddings")
+    learned_embeds = (
+        accelerator.unwrap_model(text_encoder)
+        .get_input_embeddings()
+        .weight[min(placeholder_token_ids): max(placeholder_token_ids) + 1]
+    )
+    learned_embeds_dict = {args.modifier_token: learned_embeds.detach().cpu()}
+    torch.save(learned_embeds_dict, save_path)
+
+
 def main():
     args = parse_args()
     logging_dir = Path(args.output_dir, args.logging_dir)
@@ -410,7 +421,10 @@ def main():
     unet.requires_grad_(False)
     vae.requires_grad_(False)
 
-    text_encoder.requires_grad_(False)
+    # Freeze all parameters except for the token embeddings in text encoder
+    text_encoder.text_model.encoder.requires_grad_(False)
+    text_encoder.text_model.final_layer_norm.requires_grad_(False)
+    text_encoder.text_model.embeddings.position_embedding.requires_grad_(False)
 
     # For mixed precision training we cast all non-trainable weigths (vae, non-lora text_encoder and non-lora unet) to half-precision
     # as these weights are only used for inference, keeping weights in full precision is not required.
@@ -522,7 +536,7 @@ def main():
         optimizer_cls = torch.optim.AdamW
 
     optimizer = optimizer_cls(
-        lora_layers.parameters(),
+        list(lora_layers.parameters()) + list(text_encoder.get_input_embeddings().parameters()),
         lr=args.learning_rate,
         betas=(args.adam_beta1, args.adam_beta2),
         weight_decay=args.adam_weight_decay,
@@ -738,11 +752,13 @@ def main():
             if global_step >= args.max_train_steps:
                 break
 
-    # Save the lora layers
+    # Save the lora layers and Save the newly trained embeddings
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
         unet = unet.to(torch.float32)
         unet.save_attn_procs(args.output_dir)
+        save_path = os.path.join(args.output_dir, "learned_embeds.bin")
+        save_progress(text_encoder, placeholder_token_ids, accelerator, args, save_path)
 
     accelerator.end_training()
 

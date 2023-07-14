@@ -15,8 +15,9 @@ pipeline = DiffusionPipeline.from_pretrained(
     )
 pipeline = pipeline.to(0)
 
-# load attention processors
-pipeline.unet.load_attn_procs("./logs/cat")
+# load attention processors and new embedding
+pipeline.unet.load_attn_procs("./logs/cat", weight_name="pytorch_lora_weights.bin")
+pipeline.load_textual_inversion("./logs/cat", weight_name="learned_embeds.bin")
 
 # run inference
 generator = torch.Generator(device="cuda")
