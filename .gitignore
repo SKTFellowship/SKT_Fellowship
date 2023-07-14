@@ -1,1 +1,3 @@
 .python-version
+./example/custom_diffusion/real_reg
+nohup.out
