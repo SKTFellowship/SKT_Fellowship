@@ -50,8 +50,8 @@ def retrieve(class_prompt, class_data_dir, num_class_images):
     total = 0
     pbar = tqdm(desc="downloading real regularization images", total=num_class_images)
 
-    with open(f"{class_data_dir}/caption.txt", "w") as f1, open(f"{class_data_dir}/urls.txt", "w") as f2, open(
-        f"{class_data_dir}/images.txt", "w"
+    with open(f"{class_data_dir}/caption.txt", "w",encoding="UTF-8") as f1, open(f"{class_data_dir}/urls.txt", "w",encoding="UTF-8") as f2, open(
+        f"{class_data_dir}/images.txt", "w",encoding="UTF-8"
     ) as f3:
         while total < num_class_images:
             images = class_images[count]

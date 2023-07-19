@@ -1,3 +1,6 @@
 .python-version
-./example/custom_diffusion/real_reg
+real_reg/
 nohup.out
+path-to-save-model/
+logs/
+__pycache__/

@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 
+
 import argparse
 import hashlib
 import itertools
@@ -55,7 +56,7 @@ from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
 
-
+print(os.getcwd())
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.19.0.dev0")
 
@@ -71,7 +72,7 @@ def save_model_card(repo_id: str, images=None, base_model=str, prompt=str, repo_
     img_str = ""
     for i, image in enumerate(images):
         image.save(os.path.join(repo_folder, f"image_{i}.png"))
-        img_str += f"![img_{i}](./image_{i}.png)\n"
+        img_str += f"![img_{i}](./image_{i}.png)\n" 
 
     yaml = f"""
 ---
@@ -1299,7 +1300,11 @@ def main(args):
 
     accelerator.end_training()
 
-
+    
 if __name__ == "__main__":
     args = parse_args()
     main(args)
+
+'''
+nohup accelerate launch train_custom_diffusion.py --pretrained_model_name_or_path=$MODEL_NAME --instance_data_dir=$INSTANCE_DIR --output_dir=$OUTPUT_DIR --class_data_dir=./real_reg/samples_dog/ --with_prior_preservation --real_prior --prior_loss_weight=1.0 --class_prompt=“dog” --num_class_images=200 --instance_prompt="photo of a <new1> dog” --resolution=512 --train_batch_size=1 --learning_rate=5e-6 --lr_warmup_steps=0 --max_train_steps=750 --scale_lr --hflip --modifier_token "<new1>" --gradient_accumulation_step=64 & tail -f nohup.out
+'''
