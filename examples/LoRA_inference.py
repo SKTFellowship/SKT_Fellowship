@@ -35,6 +35,17 @@ parser.add_argument(
     type=int,
     default=42
 )
+parser.add_argument(
+    "--weight_dir",
+    type=str,
+    required=True
+)
+parser.add_argument(
+    "--weight_name",
+    type=str,
+    default="pytorch_lora_weights.bin",
+    required=True
+)
 
 args = parser.parse_args()
 
@@ -47,7 +58,7 @@ if __name__ == "__main__":
     pipeline = pipeline.to(0)
 
     # load attention processors and new embedding
-    pipeline.unet.load_attn_procs("./logs/cat", weight_name="pytorch_lora_weights.bin")
+    pipeline.unet.load_attn_procs(args.weight_dir, weight_name=args.weight_name)
 
     # run inference
     generator = torch.Generator(device="cuda")
