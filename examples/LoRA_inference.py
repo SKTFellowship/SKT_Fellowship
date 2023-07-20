@@ -2,28 +2,58 @@ import torch
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, UNet2DConditionModel
 from PIL import Image
 import numpy as np
+import argparse
 
 
-pretrained_model_name_or_path = "runwayml/stable-diffusion-v1-5"
-weight_dtype = torch.float32
-seed = 42
-num_images = 4
-input_prompt = "a photo of <new1> cat"
+parser = argparse.ArgumentParser(description="LoRA training script.")
+parser.add_argument(
+    "--pretrained_model_name_or_path",
+    type=str,
+    default=None,
+    required=True,
+    help="Path to pretrained model or model identifier from huggingface.co/models.",
+)
+parser.add_argument(
+    "--prompt",
+    type=str,
+    default=None,
+    required=True,
+    help="Path to pretrained model or model identifier from huggingface.co/models.",
+)
+parser.add_argument(
+    "--scale",
+    type=float,
+    default=1.0
+)
+parser.add_argument(
+    "--num_samples",
+    type=int,
+    default=5
+)
+parser.add_argument(
+    "--seed",
+    type=int,
+    default=42
+)
 
-pipeline = DiffusionPipeline.from_pretrained(
-        pretrained_model_name_or_path, revision=None, torch_dtype=weight_dtype
-    )
-pipeline = pipeline.to(0)
+args = parser.parse_args()
 
-# load attention processors and new embedding
-pipeline.unet.load_attn_procs("./logs/cat", weight_name="pytorch_lora_weights.bin")
-pipeline.load_textual_inversion("./logs/cat", weight_name="learned_embeds.bin")
 
-# run inference
-generator = torch.Generator(device="cuda")
-generator = generator.manual_seed(seed)
+if __name__ == "__main__":
 
-images = pipeline([input_prompt]*num_images, num_inference_steps=30, generator=generator).images
-images = np.hstack([np.array(x) for x in images])
-images = Image.fromarray(images)
-images.save("sample.png")
+    pipeline = DiffusionPipeline.from_pretrained(
+            args.pretrained_model_name_or_path, revision=None, torch_dtype=torch.float32
+        )
+    pipeline = pipeline.to(0)
+
+    # load attention processors and new embedding
+    pipeline.unet.load_attn_procs("./logs/cat", weight_name="pytorch_lora_weights.bin")
+
+    # run inference
+    generator = torch.Generator(device="cuda")
+    generator = generator.manual_seed(args.seed)
+
+    images = pipeline([args.prompt]*args.num_samples, num_inference_steps=30, generator=generator).images
+    images = np.hstack([np.array(x) for x in images])
+    images = Image.fromarray(images)
+    images.save("sample.png")

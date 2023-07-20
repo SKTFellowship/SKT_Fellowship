@@ -89,12 +89,7 @@ def parse_args():
         default=None,
     )
     parser.add_argument(
-        "--modifier_token",
-        type=str,
-        required=True
-    )
-    parser.add_argument(
-        "--initial_token",
+        "--concept_word",
         type=str,
         required=True
     )
@@ -290,12 +285,11 @@ def parse_args():
 
 
 class LoRADatasets(Dataset):
-    def __init__(self, data_root, tokenizer, size, modifier_token, initial_token):
+    def __init__(self, data_root, tokenizer, size, concept_word):
         self.data_root = data_root
         self.tokenizer = tokenizer
         self.size = size
-        self.modifier_token = modifier_token
-        self.initial_token = initial_token
+        self.concept_word = concept_word
 
         self.image_paths = [os.path.join(self.data_root, file_path) for file_path in os.listdir(self.data_root)]
         self.num_images = len(self.image_paths)
@@ -319,7 +313,7 @@ class LoRADatasets(Dataset):
         if not image.mode == "RGB":
             image = image.convert("RGB")
 
-        concept_string = self.modifier_token + " " + self.initial_token
+        concept_string = self.concept_word
         text = random.choice(self.templates).format(concept_string)
 
         example["input_ids"] = self.tokenizer(
@@ -336,17 +330,6 @@ class LoRADatasets(Dataset):
 
         example["pixel_values"] = torch.from_numpy(image).permute(2, 0, 1)
         return example
-
-
-def save_progress(text_encoder, placeholder_token_ids, accelerator, args, save_path):
-    logger.info("Saving embeddings")
-    learned_embeds = (
-        accelerator.unwrap_model(text_encoder)
-        .get_input_embeddings()
-        .weight[min(placeholder_token_ids): max(placeholder_token_ids) + 1]
-    )
-    learned_embeds_dict = {args.modifier_token: learned_embeds.detach().cpu()}
-    torch.save(learned_embeds_dict, save_path)
 
 
 def main():
@@ -398,33 +381,10 @@ def main():
         args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision
     )
 
-    # token add
-    new_token = [args.modifier_token]
-    num_added_tokens = tokenizer.add_tokens(new_token)
-
-    # Convert the initializer_token, placeholder_token to ids
-    token_ids = tokenizer.encode(args.initial_token, add_special_tokens=False)
-
-    initializer_token_id = token_ids[0]
-    placeholder_token_ids = tokenizer.convert_tokens_to_ids(new_token)
-
-    # Resize the token embeddings as we are adding new special tokens to the tokenizer
-    text_encoder.resize_token_embeddings(len(tokenizer))
-
-    # Initialise the newly added placeholder token with the embeddings of the initializer token
-    token_embeds = text_encoder.get_input_embeddings().weight.data
-    with torch.no_grad():
-        for token_id in placeholder_token_ids:
-            token_embeds[token_id] = token_embeds[initializer_token_id].clone()
-
     # freeze parameters of models to save more memory
     unet.requires_grad_(False)
     vae.requires_grad_(False)
-
-    # Freeze all parameters except for the token embeddings in text encoder
-    text_encoder.text_model.encoder.requires_grad_(False)
-    text_encoder.text_model.final_layer_norm.requires_grad_(False)
-    text_encoder.text_model.embeddings.position_embedding.requires_grad_(False)
+    text_encoder.requires_grad_(False)
 
     # For mixed precision training we cast all non-trainable weigths (vae, non-lora text_encoder and non-lora unet) to half-precision
     # as these weights are only used for inference, keeping weights in full precision is not required.
@@ -536,7 +496,7 @@ def main():
         optimizer_cls = torch.optim.AdamW
 
     optimizer = optimizer_cls(
-        list(lora_layers.parameters()) + list(text_encoder.get_input_embeddings().parameters()),
+        lora_layers.parameters(),
         lr=args.learning_rate,
         betas=(args.adam_beta1, args.adam_beta2),
         weight_decay=args.adam_weight_decay,
@@ -544,7 +504,7 @@ def main():
     )
 
     train_dataset = LoRADatasets(args.train_data_dir, tokenizer, args.resolution,
-                                 args.modifier_token, args.initial_token)
+                                 args.concept_word)
 
     def collate_fn(examples):
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
@@ -758,7 +718,6 @@ def main():
         unet = unet.to(torch.float32)
         unet.save_attn_procs(args.output_dir)
         save_path = os.path.join(args.output_dir, "learned_embeds.bin")
-        save_progress(text_encoder, placeholder_token_ids, accelerator, args, save_path)
 
     accelerator.end_training()
 
