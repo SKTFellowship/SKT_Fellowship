@@ -64,7 +64,8 @@ if __name__ == "__main__":
     generator = torch.Generator(device="cuda")
     generator = generator.manual_seed(args.seed)
 
-    images = pipeline([args.prompt]*args.num_samples, num_inference_steps=30, generator=generator).images
+    images = pipeline([args.prompt]*args.num_samples, num_inference_steps=30, generator=generator,
+                      cross_attention_kwargs={"scale": args.scale}).images
     images = np.hstack([np.array(x) for x in images])
     images = Image.fromarray(images)
     images.save("sample.png")
