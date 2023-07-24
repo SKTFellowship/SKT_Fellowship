@@ -57,7 +57,6 @@ stable_prompt = prompt.replace("<itm>",class_name)
 #######################################################
 ####                 Custom prompt                #####
 #######################################################
-
 # prompt  = 'A <new1> dog '
 # stable_prompt  = 'Painting of dog at a beach by artist claude monet'
 
