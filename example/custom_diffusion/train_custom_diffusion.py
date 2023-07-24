@@ -55,6 +55,9 @@ from diffusers.models.attention_processor import CustomDiffusionAttnProcessor, C
 from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
+from datetime import datetime
+
+now = datetime.now()
 
 print(os.getcwd())
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
@@ -611,6 +614,33 @@ def parse_args(input_args=None):
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
+
+    
+    
+    record_path = args.output_dir+"/hyperparameter.txt"
+    if args.output_dir is not None:
+        os.makedirs(args.output_dir, exist_ok=True)
+    f = open(record_path, "w")
+    f.write("Date : %s \n" %now.strftime('%Y-%m-%d %H:%M:%S'))
+    f.write("outputdir : %s \n" %args.output_dir)
+    f.write("model : %s \n" %args.pretrained_model_name_or_path)
+    f.write("reg_data_usage : %s \n" %str(args.with_prior_preservation))
+    f.write("prior_loss_weight : %d \n" %args.prior_loss_weight)
+    # if args.with_prior_preservation:
+    #     f.write("real_prior : %s \n" %str(args.real_prior))
+    #     f.write("class_prompt : %s : \n" %args.class_prompt)
+    #     f.write("num_class_images : %d : \n" %args.num_class_images)
+    f.write("real_prior : %s \n" %str(args.real_prior))#
+    f.write("class_prompt : %s : \n" %args.class_prompt)#
+    f.write("num_class_images : %d : \n" %args.num_class_images)#
+    f.write("resolution : %d \n" %args.resolution)
+    f.write("instance_prompt : %s \n" %args.instance_prompt)
+    f.write("train_batch_size : %d \n" %args.train_batch_size)
+    f.write("gradient_accumulation_steps : %d \n" %args.gradient_accumulation_steps)
+    f.write("max_train_steps : %d \n" %args.max_train_steps)
+    f.write("learning_rate : %s \n" %str(args.learning_rate))
+    f.close()
+            
 
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
