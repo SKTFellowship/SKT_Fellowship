@@ -1,0 +1,8 @@
+.python-version
+real_reg/
+nohup.out
+path-to-save-model/
+logs/
+__pycache__/
+*wandb
+custom_data/
