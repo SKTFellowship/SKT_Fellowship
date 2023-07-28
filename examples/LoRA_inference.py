@@ -44,7 +44,6 @@ parser.add_argument(
     "--weight_name",
     type=str,
     default="pytorch_lora_weights.bin",
-    required=True
 )
 
 args = parser.parse_args()
@@ -67,5 +66,11 @@ if __name__ == "__main__":
     images = pipeline([args.prompt]*args.num_samples, num_inference_steps=30, generator=generator,
                       cross_attention_kwargs={"scale": args.scale}).images
     images = np.hstack([np.array(x) for x in images])
+
+    origins = pipeline([args.prompt] * args.num_samples, num_inference_steps=30, generator=generator,
+                       cross_attention_kwargs={"scale": 0.}).images
+    origins = np.hstack([np.array(x) for x in origins])
+
+    images = np.vstack([origins, images])
     images = Image.fromarray(images)
     images.save("sample.png")
